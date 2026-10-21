@@ -1,0 +1,54 @@
+name: Build PocketVault Debug APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 2. Auto-Extract ZIP
+        run: |
+          if [ -f "PocketVault_Android_Project.zip" ] && [ ! -f "settings.gradle.kts" ]; then
+            unzip -q -o PocketVault_Android_Project.zip
+            if [ -d "PocketVault" ]; then
+              cp -r PocketVault/* .
+            fi
+          fi
+
+      - name: 3. Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 4. Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 5. Set up Gradle 8.7
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.7'
+
+      - name: 6. Print Debug SHA-1 Fingerprint (For Google Drive OAuth)
+        run: gradle signingReport
+
+      - name: 7. Run Automated Unit Tests
+        run: gradle testDebugUnitTest
+
+      - name: 8. Assemble Installable Debug APK
+        run: |
+          gradle assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk ./PocketVault-debug.apk
+
+      - name: 9. Upload Ready-to-Install APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PocketVault-debug-apk
+          path: PocketVault-debug.apk
+          if-no-files-found: error
